@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ezreal Arena: Arena Style UI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Beaufort+for+LOL:wght@700&family=Spiegel:wght@400;700&family=Roboto:wght@500;700&display=swap');
+
+        /* --- GLOBAL & RESET --- */
+        body { margin: 0; overflow: hidden; background-color: #05080a; font-family: 'Spiegel', 'Roboto', sans-serif; user-select: none; }
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .interactive-ui { pointer-events: auto; }
+
+        /* --- LOADING SCREEN --- */
+        #loading-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #010a13;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 200; pointer-events: auto;
+            transition: opacity 0.5s;
+        }
+        .loader-ring {
+            width: 60px; height: 60px; border: 4px solid #c8aa6e; border-top: 4px solid transparent;
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        .loading-text { color: #c8aa6e; font-family: 'Beaufort for LOL', serif; letter-spacing: 2px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- AUGMENT UI --- */
+        #augment-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; pointer-events: auto;
+            backdrop-filter: blur(5px);
+        }
+        .augment-header {
+            font-family: 'Beaufort for LOL', serif; color: #f0e6d2; font-size: 42px; margin-bottom: 40px;
+            text-shadow: 0 0 15px rgba(200, 170, 110, 0.6); text-transform: uppercase; letter-spacing: 2px;
+        }
+        .cards-container { display: flex; gap: 40px; justify-content: center; align-items: center; }
+        
+        .augment-card {
+            width: 300px; height: 480px;
+            background-color: #111318; 
+            border: 2px solid #5c5b57;
+            position: relative; display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; overflow: hidden; box-shadow: 0 0 10px #000;
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .augment-card:hover { transform: translateY(-15px) scale(1.02); z-index: 101; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+        
+        .card-border-frame { position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; border: 1px solid rgba(255,255,255,0.1); z-index: 1; pointer-events: none; }
+        
+        .aug-img-container { width: 100%; height: 160px; position: relative; z-index: 2; display: flex; justify-content: center; align-items: center; margin-top: 20px; background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%); }
+        .aug-icon-wrapper { width: 110px; height: 110px; position: relative; display: flex; justify-content: center; align-items: center; }
+        .aug-icon { width: 90px; height: 90px; background-size: cover; background-position: center; background-repeat: no-repeat; z-index: 2; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); }
+        .aug-tier-bg { position: absolute; width: 100%; height: 100%; background-image: url('https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/-1.png'); background-size: contain; opacity: 0.2; z-index: 1; }
+        
+        .aug-content { flex: 1; width: 100%; padding: 10px 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; z-index: 2; text-align: center; }
+        .aug-name { font-family: 'Beaufort for LOL', serif; color: #f0e6d2; font-size: 24px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .aug-type-badge { font-size: 11px; color: #c8aa6e; text-transform: uppercase; letter-spacing: 2px; background: rgba(200, 170, 110, 0.1); border: 1px solid #c8aa6e; padding: 2px 8px; margin-bottom: 20px; }
+        .aug-desc { color: #a09b8c; font-size: 14px; line-height: 1.5; font-weight: 400; }
+        .aug-stat { color: #0acbe6; } 
+
+        /* UPDATED: Augment Card Backgrounds */
+        .card-silver { 
+            border-color: #798687; 
+            background-image: url('https://raw.githubusercontent.com/hiiragimikoto/arena-map-ui/refs/heads/main/sliver.png');
+        } 
+        .card-silver .aug-name { color: #e1e1e1; }
+
+        .card-gold { 
+            border-color: #c8aa6e; 
+            box-shadow: 0 0 15px rgba(200, 170, 110, 0.1); 
+            background-image: url('https://raw.githubusercontent.com/hiiragimikoto/arena-map-ui/refs/heads/main/gold.png');
+        } 
+        .card-gold .aug-name { color: #f0e6d2; }
+
+        .card-prismatic { 
+            border-color: #bd33a4; 
+            box-shadow: 0 0 15px rgba(189, 51, 164, 0.2); 
+            background-image: url('https://raw.githubusercontent.com/hiiragimikoto/arena-map-ui/refs/heads/main/rainbow.png');
+        } 
+        .card-prismatic .aug-name { color: #ffabf1; text-shadow: 0 0 5px #bd33a4; }
+
+        /* --- SCOREBOARD UI --- */
+        #scoreboard {
+            /* UPDATED: Brought lower (top: 23% instead of 15%) */
+            position: absolute; top: 23%; left: 50%; transform: translate(-50%, 0);
+            display: none; flex-direction: row; 
+            gap: 6px;
+            z-index: 150; pointer-events: none;
+        }
+        
+        .sb-team-wrapper {
+            display: flex; align-items: center; gap: 0;
+        }
+
+        .sb-team-logo {
+            width: 60px; height: 60px; 
+            background-color: #0a0e14;
+            border: 2px solid #0099cc;
+            border-radius: 50%;
+            z-index: 3;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+            position: relative;
+        }
+        .sb-team-logo.red { border-color: #cc3333; }
+        .logo-img { width: 100%; height: 100%; border-radius: 50%; background-size: cover; background-position: center; background-repeat: no-repeat; }
+
+        /* Container for the rows of players */
+        .sb-rows-container {
+            display: flex; flex-direction: column;
+            background: #010a13;
+            border: 2px solid #5c4b1e;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            min-width: 580px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Left Team: Logo on Left, Border connection */
+        .sb-team-wrapper.left .sb-team-logo { margin-right: -30px; border-right: 2px solid #0099cc; }
+        .sb-team-wrapper.left .sb-rows-container { 
+            padding-left: 35px; 
+            border-left: 2px solid #0099cc; 
+            border-top-left-radius: 35px; 
+            border-bottom-left-radius: 35px; 
+        }
+        
+        /* Right Team: Logo on Right */
+        .sb-team-wrapper.right .sb-team-logo { margin-left: -30px; border-left: 2px solid #cc3333; order: 2; }
+        .sb-team-wrapper.right .sb-rows-container { 
+            padding-right: 35px; 
+            border-right: 2px solid #cc3333; 
+            border-top-right-radius: 35px; 
+            border-bottom-right-radius: 35px; 
+            order: 1; 
+            flex-direction: column;
+        }
+
+        /* Mirror the content order for the Right Team */
+        .sb-team-wrapper.right .sb-row { flex-direction: row-reverse; }
+        .sb-team-wrapper.right .sb-portrait-group { margin-right: 0; margin-left: 15px; }
+        .sb-team-wrapper.right .sb-spells-col { margin-right: 0; margin-left: 15px; }
+        .sb-team-wrapper.right .sb-augments-row { margin-right: 0; margin-left: auto; justify-content: flex-end; }
+        .sb-team-wrapper.right .sb-stats-col { text-align: left; }
+
+        .sb-row {
+            height: 70px; display: flex; align-items: center; padding: 0 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05); position: relative;
+            background: rgba(255,255,255,0.02);
+        }
+        .sb-row:last-child { border-bottom: none; }
+
+        .sb-portrait-group { position: relative; width: 50px; height: 50px; margin-right: 15px; }
+        .sb-portrait {
+            width: 46px; height: 46px; border-radius: 50%;
+            border: 2px solid #c8aa6e; 
+            background-size: cover; background-position: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        .sb-portrait.dead { filter: grayscale(100%); border-color: #555; }
+        .sb-lvl {
+            position: absolute; bottom: -2px; right: -2px;
+            width: 18px; height: 18px; background: #1c1c1c; border: 1px solid #c8aa6e;
+            color: #fff; font-size: 10px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+        }
+
+        .sb-spells-col { display: flex; flex-direction: column; gap: 4px; margin-right: 15px; }
+        .sb-spell { width: 20px; height: 20px; border: 1px solid #444; background-size: cover; border-radius: 3px; background-color: #111; }
+        
+        .sb-augments-row { display: flex; gap: 4px; margin-right: auto; width: auto; flex-wrap: nowrap; align-items: center; }
+        .sb-aug-icon { width: 32px; height: 32px; border: 1px solid #555; border-radius: 4px; background-color: #000; background-size: cover; flex-shrink: 0; }
+        
+        .sb-stats-col { text-align: right; min-width: 80px; }
+        .sb-kda { font-family: 'Beaufort for LOL'; font-size: 18px; color: #f0e6d2; letter-spacing: 1px; }
+        
+        .sb-items-row, .sb-cs { display: none; }
+
+        /* General UI */
+        .hud-container { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 8px; padding-bottom: 15px; }
+        
+        /* Minimap UI */
+        #minimap {
+            position: absolute; bottom: 15px; right: 15px;
+            width: 160px; height: 160px;
+            border: 2px solid #5c4b1e;
+            background-color: #111;
+            background-image: url('https://raw.githubusercontent.com/hiiragimikoto/arena-map-ui/refs/heads/main/map.png');
+            background-size: cover; background-position: center;
+            z-index: 100;
+            border-radius: 4px;
+            box-shadow: 0 0 10px #000;
+        }
+        #mm-player, #mm-enemy {
+            position: absolute; width: 8px; height: 8px; border-radius: 50%;
+            border: 1px solid #fff; box-shadow: 0 0 2px #000;
+            transform: translate(-50%, -50%);
+        }
+        #mm-player { background-color: #00ccff; }
+        #mm-enemy { background-color: #ff3333; }
+
+        .announcement-wrapper { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 15px; pointer-events: none; z-index: 20; display: none; }
+        @keyframes slideDownFade { 0% { transform: translate(-50%, -50px); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
+        @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
+        .ann-icon { width: 50px; height: 50px; border-radius: 50%; background-color: #111; border: 2px solid #c8aa6e; background-size: cover; background-position: center; background-image: url("https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Ezreal.png"); box-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        .ann-content { background: linear-gradient(to right, rgba(0,0,0,0), rgba(10,14,20,0.9) 20%, rgba(10,14,20,0.9) 80%, rgba(0,0,0,0)); padding: 10px 40px; text-align: center; }
+        .ann-text { font-family: 'Beaufort for LOL', serif; font-size: 32px; color: #f0e6d2; text-transform: uppercase; text-shadow: 0 2px 4px #000; margin: 0; white-space: nowrap; }
+        .ann-underline { width: 100%; height: 2px; background: linear-gradient(to right, transparent, #0088ff, transparent); margin-top: 5px; box-shadow: 0 0 5px #0088ff; }
+        .ann-red .ann-text { color: #ffcccc; text-shadow: 0 0 5px #d12f2f; }
+        .ann-red .ann-underline { background: linear-gradient(to right, transparent, #d12f2f, transparent); box-shadow: 0 0 5px #d12f2f; }
+
+        .floating-bar { position: absolute; display: flex; align-items: center; pointer-events: none; transform: translate(-50%, -100%); z-index: 5; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8)); transition: opacity 0.2s; }
+        .lvl-box { width: 24px; height: 24px; background: #111; border: 2px solid #555; color: white; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 2; margin-right: -2px; }
+        .bars-stack { display: flex; flex-direction: column; width: 100px; background: #000; border: 1px solid #333; padding: 1px; }
+        .overhead-hp { height: 12px; width: 100%; background: #333; position: relative; margin-bottom: 1px; }
+        .overhead-hp-fill { height: 100%; width: 100%; transition: width 0.1s linear; background-image: repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(0,0,0,0.5) 20px); }
+        .overhead-mana { height: 5px; width: 100%; background: #222; }
+        .overhead-mana-fill { height: 100%; width: 100%; background: #1a4e9c; transition: width 0.1s linear; }
+        .hp-green { background-color: #1a9c30; }
+        .hp-red { background-color: #d12f2f; }
+        
+        .cast-bar-container { width: 100px; height: 8px; background: #111; border: 1px solid #000; margin-top: 2px; display: none; position: relative; }
+        .cast-bar-fill { height: 100%; background: #d4c188; width: 0%; }
+        .cast-text { position: absolute; top: -12px; left: 0; width: 100%; text-align: center; color: #fff; font-size: 9px; text-shadow: 1px 1px 0 #000; }
+
+        .portrait-container { position: relative; z-index: 2; }
+        .portrait-circle { width: 90px; height: 90px; background-color: #202124; border: 3px solid #c8aa6e; border-radius: 50%; background-image: url("https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Ezreal.png"); background-size: cover; background-position: center; background-repeat: no-repeat; box-shadow: 0 0 15px rgba(0,0,0,0.8); position: relative; overflow: hidden; }
+        .portrait-circle.dead-filter { filter: grayscale(100%); border-color: #555; }
+        .death-timer-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; color: #fff; font-size: 36px; font-weight: bold; z-index: 10; }
+        .level-badge { position: absolute; bottom: -5px; right: -5px; background: #202124; border: 2px solid #c8aa6e; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 11; }
+        .center-panel { background: linear-gradient(to top, #080d11, #13171a); border: 2px solid #463714; border-top: 3px solid #c8aa6e; padding: 10px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 -5px 20px rgba(0,0,0,0.8); border-radius: 4px; }
+        .skills-row { display: flex; gap: 6px; justify-content: center; }
+        
+        .skill-box { width: 42px; height: 42px; background: #222; border: 1px solid #5c5c5c; position: relative; cursor: pointer; transition: all 0.1s; background-size: cover; background-position: center; }
+        .skill-box:hover { border-color: #c8aa6e; }
+        .skill-box.cd-active { filter: grayscale(100%); pointer-events: none; border-color: #333; }
+        .cd-timer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 18px; text-shadow: 0 0 3px black; }
+        
+        .inventory-panel { background: #06080a; border: 2px solid #463714; border-top: 2px solid #5c4b1e; padding: 5px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 -5px 20px rgba(0,0,0,0.8); border-radius: 4px; width: max-content; height: auto; position: relative; }
+        .inv-row { display: flex; gap: 2px; }
+        .inv-slot { width: 32px; height: 32px; background: #111; border: 1px solid #333; background-size: cover; background-position: center; }
+        .gold-display { color: #d4c188; font-size: 14px; font-weight: bold; text-align: center; margin-top: 4px; text-shadow: 1px 1px 0 #000; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .gold-icon { width: 12px; height: 12px; background: gold; border-radius: 50%; border: 1px solid #fff; }
+
+        .item-green { background: linear-gradient(135deg, #1a4d1a, #2e8b57); border: 1px solid #4caf50; }
+        .item-sword { background: linear-gradient(45deg, #555, #ccc); border: 1px solid #888; position: relative; }
+        .item-sword::after { content: ''; position: absolute; top: 10%; left: 45%; width: 10%; height: 80%; background: #fff; transform: rotate(45deg); }
+        .item-pick { background: linear-gradient(to bottom, #444, #222); border: 1px solid #666; position: relative; }
+        .item-pick::before { content: ''; position: absolute; top: 20%; left: 10%; width: 80%; height: 20%; background: #aaa; transform: rotate(-10deg); }
+
+        #btn-q { background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/EzrealQ.png'); }
+        #btn-w { background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/EzrealW.png'); }
+        #btn-d { background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/SummonerHeal.png'); }
+        #btn-f { background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/SummonerFlash.png'); }
+
+        .skill-box.summoner { width: 32px; height: 32px; margin-top: 10px; }
+        .hotkey { position: absolute; bottom: 2px; right: 3px; font-size: 10px; color: #fff; text-shadow: 1px 1px 0 #000; font-weight: bold; pointer-events: none; }
+        .bars-container { width: 100%; display: flex; flex-direction: column; gap: 4px; min-width: 260px; }
+        .bar-wrapper { position: relative; width: 100%; height: 16px; background: #111; border: 1px solid #000; }
+        .hp-fill { background: linear-gradient(to right, #1a9c30, #2bc244); width: 100%; height: 100%; transition: width 0.2s ease-out; }
+        .mana-fill { background: linear-gradient(to right, #1a4e9c, #2b6cc2); width: 100%; height: 100%; transition: width 0.2s ease-out; }
+        .bar-text { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 11px; color: #eee; line-height: 16px; text-shadow: 1px 1px 1px #000; white-space: nowrap; font-weight: 500; }
+        .damage-number { position: absolute; color: white; font-weight: bold; font-size: 24px; pointer-events: none; text-shadow: 0 0 3px red; animation: floatUp 1s forwards; }
+        .damage-number.mana-refund { color: #00aaff; text-shadow: 0 0 5px blue; font-size: 20px; }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-50px) scale(1.2); opacity: 0; } }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-canvas"></div>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading-screen">
+        <div class="loader-ring"></div>
+        <div class="loading-text">SUMMONING CHAMPIONS...</div>
+    </div>
+
+    <!-- AUGMENT SELECTION MODAL -->
+    <div id="augment-modal">
+        <div class="augment-header">Select an Augment</div>
+        <div class="cards-container" id="cards-container"></div>
+    </div>
+
+    <div id="ui-layer" style="display: none;">
+        <!-- NEW SCOREBOARD (Image Style) -->
+        <div id="scoreboard">
+            
+            <!-- Left Side (Blue Team) -->
+            <div class="sb-team-wrapper left">
+                <!-- Team Icon Left -->
+                <div class="sb-team-logo blue">
+                    <div class="logo-img" style="background-image: url('https://raw.githubusercontent.com/hiiragimikoto/arena-map-ui/refs/heads/main/poro.png');"></div>
+                </div>
+                
+                <!-- Rows Container -->
+                <div class="sb-rows-container">
+                    <div class="sb-row">
+                        <div class="sb-portrait-group">
+                            <div class="sb-portrait" id="sb-p-icon" style="background-image: url('https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Ezreal.png');"></div>
+                            <div class="sb-lvl" id="sb-p-lvl">1</div>
+                        </div>
+                        <div class="sb-spells-col">
+                            <div class="sb-spell" style="background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/SummonerFlash.png');"></div>
+                            <div class="sb-spell" style="background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/SummonerHeal.png');"></div>
+                        </div>
+                        <div class="sb-augments-row" id="sb-p-augments"></div>
+                        <div class="sb-stats-col">
+                            <div class="sb-kda" id="sb-p-kda">0/0/0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Side (Red Team) -->
+            <div class="sb-team-wrapper right">
+                <!-- Rows Container -->
+                <div class="sb-rows-container">
+                    <div class="sb-row">
+                        <div class="sb-portrait-group">
+                            <div class="sb-portrait" id="sb-e-icon" style="background-image: url('https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Ezreal.png');"></div>
+                            <div class="sb-lvl" id="sb-e-lvl">1</div>
+                        </div>
+                        <div class="sb-spells-col">
+                            <div class="sb-spell" style="background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/SummonerFlash.png');"></div>
+                            <div class="sb-spell" style="background-image: url('https://ddragon.leagueoflegends.com/cdn/15.24.1/img/spell/SummonerHeal.png');"></div>
+                        </div>
+                        <div class="sb-augments-row" id="sb-e-augments"></div>
+                        <div class="sb-stats-col">
+                            <div class="sb-kda" id="sb-e-kda">0/0/0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Team Icon Right -->
+                <div class="sb-team-logo red">
+                    <div class="logo-img" style="background-image: url('https://raw.githubusercontent.com/hiiragimikoto/arena-map-ui/refs/heads/main/cua.png');"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="announcement-banner" class="announcement-wrapper">
+            <div class="ann-icon" id="ann-left-icon"></div>
+            <div class="ann-content" id="ann-bg"><h1 class="ann-text" id="ann-text"></h1><div class="ann-underline" id="ann-line"></div></div>
+            <div class="ann-icon" id="ann-right-icon" style="border-color: #d12f2f;"></div>
+        </div>
+
+        <!-- MINIMAP ADDITION -->
+        <div id="minimap">
+            <div id="mm-player"></div>
+            <div id="mm-enemy"></div>
+        </div>
+
+        <!-- PLAYER OVERHEAD -->
+        <div id="player-bar" class="floating-bar">
+            <div class="lvl-box" id="p-overhead-lvl">1</div>
+            <div class="bars-stack">
+                <div class="overhead-hp"><div class="overhead-hp-fill hp-green" id="p-hp-fill"></div></div>
+                <div class="overhead-mana"><div class="overhead-mana-fill" id="p-mana-fill"></div></div>
+                <div class="cast-bar-container" id="p-cast-bar"><div class="cast-text">Channeling...</div><div class="cast-bar-fill" id="p-cast-fill"></div></div>
+            </div>
+        </div>
+
+        <!-- ENEMY OVERHEAD -->
+        <div id="enemy-bar" class="floating-bar" style="display: none;">
+            <div class="lvl-box" id="e-overhead-lvl" style="border-color: #d12f2f;">1</div>
+            <div class="bars-stack">
+                <div class="overhead-hp"><div class="overhead-hp-fill hp-red" id="e-hp-fill"></div></div>
+                <div class="overhead-mana"><div class="overhead-mana-fill" id="e-mana-fill"></div></div>
+                <div class="cast-bar-container" id="e-cast-bar"><div class="cast-text">Channeling...</div><div class="cast-bar-fill" id="e-cast-fill"></div></div>
+            </div>
+        </div>
+
+        <div class="hud-container interactive-ui">
+            <div class="portrait-container">
+                <div class="portrait-circle" id="portrait-circle"><div id="death-timer" class="death-timer-overlay" style="display: none;">5</div></div>
+                <div class="level-badge" id="hud-lvl">1</div>
+            </div>
+            <div class="center-panel">
+                <div class="skills-row">
+                    <div class="skill-box" id="btn-q"><span class="hotkey">Q</span><div class="cd-timer"></div></div>
+                    <div class="skill-box" id="btn-w"><span class="hotkey">W</span><div class="cd-timer"></div></div>
+                    <div class="skill-box"><span class="hotkey">E</span></div>
+                    <div class="skill-box"><span class="hotkey">R</span></div>
+                    <div class="skill-box summoner" id="btn-d"><span class="hotkey">D</span><div class="cd-timer"></div></div>
+                    <div class="skill-box summoner" id="btn-f"><span class="hotkey">F</span><div class="cd-timer"></div></div>
+                </div>
+                <div class="bars-container">
+                    <div class="bar-wrapper"><div class="hp-fill" id="hp-bar"></div><span class="bar-text" id="hp-text"></span></div>
+                    <div class="bar-wrapper"><div class="mana-fill" id="mana-bar"></div><span class="bar-text" id="mana-text"></span></div>
+                </div>
+            </div>
+            
+            <div class="inventory-panel">
+                <div class="inv-row"><div class="inv-slot item-green"></div><div class="inv-slot item-sword"></div><div class="inv-slot item-pick"></div></div>
+                <div class="inv-row"><div class="inv-slot item-sword"></div><div class="inv-slot"></div><div class="inv-slot"></div></div>
+                <div class="gold-display"><div class="gold-icon"></div> <span id="gold-count">2020</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN THREE.JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        const MAX_LEVEL = 18;
+        const MAP_RADIUS = 30;
+        const REGEN_PER_SEC = 2.5; 
+        const AUGMENT_CAP = 8;
+        
+        function getWikiAugmentUrl(name) {
+            const safeName = name.replace(/ /g, '_').replace(/'/g, '%27');
+            return `https://wiki.leagueoflegends.com/en-us/images/thumb/${safeName}_augment.png/80px-${safeName}_augment.png`;
+        }
+
+        const augmentsList = [
+            { id: 'typhoon', name: 'Typhoon', type: 'Offense', tier: 'prismatic', desc: 'Attacks fire bolts at 2 nearby enemies dealing 50% damage.', icon: getWikiAugmentUrl('Typhoon') },
+            { id: 'twice', name: 'Lightning Strikes', type: 'Offense', tier: 'gold', desc: 'Every 3rd attack strikes again with bonus Attack Speed.', icon: getWikiAugmentUrl('Lightning Strikes') },
+            { id: 'brutalizer', name: 'The Brutalizer', type: 'Offense', tier: 'gold', desc: 'Gain <span class="aug-stat">25 AD</span> and <span class="aug-stat">10 Ability Haste</span>.', icon: getWikiAugmentUrl('The Brutalizer') },
+            { id: 'tap', name: 'Tap Dancer', type: 'Utility', tier: 'prismatic', desc: 'Your attacks grant <span class="aug-stat">10 MS</span> (stacking) and Attack Speed is uncapped.', icon: getWikiAugmentUrl('Tap Dancer') },
+            { id: 'scoped', name: 'Scopier Weapons', type: 'Offense', tier: 'gold', desc: 'Gain <span class="aug-stat">200 Attack Range</span>.', icon: getWikiAugmentUrl('Scopier Weapons') },
+            { id: 'restless', name: 'Restless Restoration', type: 'Defense', tier: 'silver', desc: 'Heal for <span class="aug-stat">2% Max HP</span> per 10 units traveled.', icon: getWikiAugmentUrl('Restless Restoration') },
+            { id: 'rabble', name: 'Rabble Rousing', type: 'Utility', tier: 'gold', desc: 'Using an ability heals you for <span class="aug-stat">2% Max HP</span>.', icon: getWikiAugmentUrl('Rabble Rousing') },
+            { id: 'perseverance', name: 'Perseverance', type: 'Defense', tier: 'gold', desc: 'Gain <span class="aug-stat">Massive HP Regen</span>, increasing when low.', icon: getWikiAugmentUrl('Perseverance') },
+            { id: 'mystic', name: 'Mystic Punch', type: 'Offense', tier: 'prismatic', desc: 'Attacks reduce all cooldowns by 1s.', icon: getWikiAugmentUrl('Mystic Punch') },
+            { id: 'mind', name: 'Mind to Matter', type: 'Defense', tier: 'gold', desc: 'Gain Health equal to <span class="aug-stat">50%</span> of your Mana.', icon: getWikiAugmentUrl('Mind to Matter') },
+            { id: 'heavy', name: 'Heavy Hitter', type: 'Offense', tier: 'silver', desc: 'Attacks deal bonus damage equal to <span class="aug-stat">5% Max HP</span>.', icon: getWikiAugmentUrl('Heavy Hitter') },
+            { id: 'goredrink', name: 'Goredrink', type: 'Defense', tier: 'prismatic', desc: 'Gain <span class="aug-stat">10% Omnivamp</span> and <span class="aug-stat">300 Health</span>.', icon: getWikiAugmentUrl('Goredrink') },
+            { id: 'breadbutter', name: 'Bread And Butter', type: 'Offense', tier: 'gold', desc: 'Your Q has <span class="aug-stat">200 Ability Haste</span>.', icon: getWikiAugmentUrl('Bread And Butter') },
+            { id: 'breadjam', name: 'Bread And Jam', type: 'Utility', tier: 'gold', desc: 'Your W has <span class="aug-stat">200 Ability Haste</span>.', icon: getWikiAugmentUrl('Bread And Jam') },
+            { id: 'celestial', name: 'Celestial Body', type: 'Defense', tier: 'gold', desc: 'Gain <span class="aug-stat">1000 HP</span>, but deal -10% Damage.', icon: getWikiAugmentUrl('Celestial Body') },
+            { id: 'dawn', name: 'Dawnbringer\'s Resolve', type: 'Defense', tier: 'gold', desc: 'When dropping below 50% HP, heal for 30% Max HP (15s CD).', icon: getWikiAugmentUrl('Dawnbringer\'s Resolve') },
+            { id: 'deft', name: 'Deft', type: 'Offense', tier: 'silver', desc: 'Gain <span class="aug-stat">50% Attack Speed</span>.', icon: getWikiAugmentUrl('Deft') },
+            { id: 'goliath', name: 'Goliath', type: 'Defense', tier: 'prismatic', desc: 'Become Huge. Gain <span class="aug-stat">35% HP</span> and <span class="aug-stat">15% Adaptive Force</span>.', icon: getWikiAugmentUrl('Goliath') }
+        ];
+
+        let isSelecting = false;
+        let gameStarted = false;
+
+        function createStats() {
+            return {
+                maxHp: 600, curHp: 600, maxMana: 375, curMana: 375, 
+                baseDmg: 60, damage: 60, range: 8, attackSpeed: 1000, lastAttack: 0, 
+                level: 1, 
+                cooldowns: { q: 0, w:0, d: 0, f: 0 }, 
+                kills: 0, deaths: 0, cs: 0, gold: 0, 
+                wMark: { active: false, mesh: null }, 
+                augments: [], 
+                // Augment Flags
+                hasTyphoon: false,
+                hasTwice: false,
+                attackCount: 0,
+                hasTap: false,
+                tapStacks: 0,
+                hasMystic: false,
+                hasRestless: false,
+                hasRabble: false,
+                hasHeavy: false,
+                hasMind: false,
+                hasLightning: false,
+                hasDawn: false,
+                dawnCd: 0,
+                // Mods
+                haste: 0,
+                hpRegenMod: 1.0,
+                lifesteal: 0,
+                scale: 1.0,
+                dmgMult: 1.0,
+                qHaste: 0,
+                wHaste: 0,
+                distanceMoved: 0
+            };
+        }
+
+        const player = createStats();
+        const enemy = createStats();
+        enemy.attackSpeed = 1500; 
+
+        // UPDATED: Speeds are now units per second (assuming 60fps baseline: 1.2 * 60 = 72)
+        const spells = {
+            q: { cd: 4000, mana: 35, width: 2.0, range: 35, speed: 70, castTime: 250 }, 
+            w: { cd: 12000, mana: 50, width: 3.0, range: 35, speed: 60, castTime: 250 },
+            d: { cd: 45000, heal: 300 }, 
+            f: { cd: 30000, dist: 8 }    
+        };
+
+        function getCooldown(baseCD, haste) { return baseCD / (1 + haste/100); }
+        function getQDamage(level, stats) { return (20 + (5 * (level - 1)) + stats.damage * 1.1) * stats.dmgMult; }
+        function getWDamage(level, stats) { return (80 + (55 * (level - 1)) + stats.damage * 0.6) * stats.dmgMult; }
+
+        let isDead = false;
+        let isEnemyDead = false;
+        let pChannel = { active: false, start: 0, duration: 0, onComplete: null };
+        let eChannel = { active: false, start: 0, duration: 0, onComplete: null };
+        let skillshots = [];
+        let particles = [];
+        
+        function showAugmentSelection() {
+            if (player.augments.length >= AUGMENT_CAP) return;
+            isSelecting = true;
+            document.getElementById('augment-modal').style.display = 'flex';
+            generateAugmentCards();
+        }
+
+        function generateAugmentCards() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+            const shuffled = [...augmentsList].sort(() => 0.5 - Math.random());
+            const picked = shuffled.slice(0, 3);
+            picked.forEach(aug => {
+                const card = document.createElement('div');
+                card.className = `augment-card card-${aug.tier}`;
+                const imgUrl = aug.icon;
+                card.innerHTML = `
+                    <div class="card-border-frame"></div>
+                    <div class="aug-img-container"><div class="aug-icon-wrapper"><div class="aug-tier-bg"></div><div class="aug-icon" style="background-image: url('${imgUrl}');"></div></div></div>
+                    <div class="aug-content"><div class="aug-name">${aug.name}</div><div class="aug-type-badge">${aug.type}</div><div class="aug-desc">${aug.desc}</div></div>
+                `;
+                card.onclick = () => selectAugment(aug);
+                container.appendChild(card);
+            });
+        }
+
+        function selectAugment(aug) {
+            player.augments.push(aug);
+            applyAugmentEffect(aug.id, player, pMesh);
+            giveEnemyRandomAugment();
+            isSelecting = false;
+            document.getElementById('augment-modal').style.display = 'none';
+            updateUI(); 
+        }
+
+        function giveEnemyRandomAugment() {
+            if (enemy.augments.length >= AUGMENT_CAP) return;
+            const randomAug = augmentsList[Math.floor(Math.random() * augmentsList.length)];
+            enemy.augments.push(randomAug);
+            applyAugmentEffect(randomAug.id, enemy, eMesh);
+        }
+
+        function applyAugmentEffect(id, stats, mesh) {
+            switch(id) {
+                case 'typhoon': stats.hasTyphoon = true; break;
+                case 'twice': stats.hasTwice = true; stats.attackSpeed *= 0.8; break;
+                case 'brutalizer': stats.damage += 25; stats.haste += 10; break;
+                case 'tap': stats.hasTap = true; break;
+                case 'scoped': stats.range += 4; break; 
+                case 'restless': stats.hasRestless = true; break;
+                case 'rabble': stats.hasRabble = true; break;
+                case 'perseverance': stats.hpRegenMod += 5.0; break;
+                case 'mystic': stats.hasMystic = true; break;
+                case 'mind': stats.hasMind = true; stats.maxHp += stats.maxMana * 0.5; stats.curHp += stats.maxMana * 0.5; break;
+                case 'lightning': stats.hasLightning = true; break;
+                case 'heavy': stats.hasHeavy = true; break;
+                case 'goredrink': stats.lifesteal += 0.10; stats.maxHp += 300; stats.curHp += 300; stats.scale *= 1.1; if(mesh) mesh.scale.set(stats.scale, stats.scale, stats.scale); break;
+                case 'breadbutter': stats.qHaste += 200; break;
+                case 'breadjam': stats.wHaste += 200; break;
+                case 'celestial': stats.maxHp += 1000; stats.curHp += 1000; stats.dmgMult *= 0.9; break;
+                case 'dawn': stats.hasDawn = true; break;
+                case 'deft': stats.attackSpeed *= 0.5; break; 
+                case 'goliath': 
+                    stats.maxHp *= 1.35; stats.curHp *= 1.35; 
+                    stats.damage *= 1.15; 
+                    stats.scale *= 1.4; if(mesh) mesh.scale.set(stats.scale, stats.scale, stats.scale);
+                    break;
+            }
+        }
+
+        const ui = {
+            hpBar: document.getElementById('hp-bar'), hpText: document.getElementById('hp-text'), manaBar: document.getElementById('mana-bar'), manaText: document.getElementById('mana-text'), hudLvl: document.getElementById('hud-lvl'), portrait: document.getElementById('portrait-circle'), deathTimer: document.getElementById('death-timer'), pOverhead: document.getElementById('player-bar'), pHp: document.getElementById('p-hp-fill'), pMana: document.getElementById('p-mana-fill'), pLvl: document.getElementById('p-overhead-lvl'), pCastBar: document.getElementById('p-cast-bar'), pCastFill: document.getElementById('p-cast-fill'), eOverhead: document.getElementById('enemy-bar'), eHp: document.getElementById('e-hp-fill'), eMana: document.getElementById('e-mana-fill'), eLvl: document.getElementById('e-overhead-lvl'), eCastBar: document.getElementById('e-cast-bar'), eCastFill: document.getElementById('e-cast-fill'), ann: document.getElementById('announcement-banner'), annText: document.getElementById('ann-text'), annLeft: document.getElementById('ann-left-icon'), annRight: document.getElementById('ann-right-icon'), 
+            btnQ: document.getElementById('btn-q'), btnW: document.getElementById('btn-w'), btnD: document.getElementById('btn-d'), btnF: document.getElementById('btn-f'), 
+            scoreboard: document.getElementById('scoreboard'), 
+            sbPKda: document.getElementById('sb-p-kda'), sbPLvl: document.getElementById('sb-p-lvl'),
+            sbEKda: document.getElementById('sb-e-kda'), sbELvl: document.getElementById('sb-e-lvl'),
+            sbPAugs: document.getElementById('sb-p-augments'), sbEAugs: document.getElementById('sb-e-augments'), gold: document.getElementById('gold-count'),
+            mmPlayer: document.getElementById('mm-player'), mmEnemy: document.getElementById('mm-enemy')
+        };
+
+        function updateUI() {
+            if (!gameStarted) return;
+            player.damage = (player.baseDmg + (player.hasLightning ? 30 : 0)) * (player.augments.find(a=>a.id=='goliath') ? 1.15 : 1);
+            if(player.hasMind) player.maxHp = (600 + (70 * (player.level-1)) + (player.augments.find(a=>a.id=='goredrink')?300:0) + (player.augments.find(a=>a.id=='celestial')?1000:0) + (player.maxMana * 0.5)) * (player.augments.find(a=>a.id=='goliath') ? 1.35 : 1);
+
+            player.curHp = Math.max(0, Math.min(player.curHp, player.maxHp)); player.curMana = Math.max(0, Math.min(player.curMana, player.maxMana)); enemy.curHp = Math.max(0, Math.min(enemy.curHp, enemy.maxHp));
+            const hpPct = (player.curHp / player.maxHp) * 100, manaPct = (player.curMana / player.maxMana) * 100;
+            ui.hpBar.style.width = `${hpPct}%`; ui.hpText.innerText = `${Math.floor(player.curHp)}/${Math.floor(player.maxHp)}`; ui.manaBar.style.width = `${manaPct}%`; ui.manaText.innerText = `${Math.floor(player.curMana)}/${Math.floor(player.maxMana)}`; ui.hudLvl.innerText = player.level; ui.pHp.style.width = `${hpPct}%`; ui.pMana.style.width = `${manaPct}%`; ui.pLvl.innerText = player.level;
+            const eHpPct = (enemy.curHp / enemy.maxHp) * 100, eManaPct = (enemy.curMana / enemy.maxMana) * 100;
+            ui.eHp.style.width = `${eHpPct}%`; ui.eMana.style.width = `${eManaPct}%`; ui.eLvl.innerText = enemy.level;
+            
+            updateCD(ui.btnQ, player.cooldowns.q, getCooldown(spells.q.cd, player.haste + player.qHaste)); 
+            updateCD(ui.btnW, player.cooldowns.w, getCooldown(spells.w.cd, player.haste + player.wHaste)); 
+            updateCD(ui.btnD, player.cooldowns.d, getCooldown(spells.d.cd, player.haste)); 
+            updateCD(ui.btnF, player.cooldowns.f, getCooldown(spells.f.cd, player.haste));
+            
+            updateChannelUI(pChannel, ui.pCastBar, ui.pCastFill); updateChannelUI(eChannel, ui.eCastBar, ui.eCastFill);
+            ui.gold.innerText = player.gold;
+        }
+
+        function updateChannelUI(chObj, container, fill) {
+            if (chObj.active) { container.style.display = 'block'; const progress = Math.min(1, (Date.now() - chObj.start) / chObj.duration); fill.style.width = (progress * 100) + '%'; } else { container.style.display = 'none'; fill.style.width = '0%'; }
+        }
+
+        function updateScoreboardData() {
+            ui.sbPKda.innerText = `${player.kills}/${player.deaths}/${0}`; ui.sbPLvl.innerText = player.level;
+            ui.sbEKda.innerText = `${enemy.kills}/${enemy.deaths}/${0}`; ui.sbELvl.innerText = enemy.level;
+            renderAugmentIcons(ui.sbPAugs, player.augments); renderAugmentIcons(ui.sbEAugs, enemy.augments);
+        }
+
+        function renderAugmentIcons(container, augments) {
+            container.innerHTML = '';
+            augments.forEach(aug => {
+                const div = document.createElement('div'); div.className = 'sb-aug-icon'; div.style.backgroundImage = `url('${aug.icon}')`; container.appendChild(div);
+            });
+        }
+
+        function updateCD(btn, timestamp, cdDur) {
+            const now = Date.now(), remain = timestamp + cdDur - now, textDiv = btn.querySelector('.cd-timer');
+            if (remain > 0) { btn.classList.add('cd-active'); textDiv.innerText = (remain / 1000).toFixed(1); } else { btn.classList.remove('cd-active'); textDiv.innerText = ""; }
+        }
+
+        function showDamage(val, x, y, isMana, isHeal) {
+            const div = document.createElement('div'); div.className = isMana ? 'damage-number mana-refund' : 'damage-number'; if (isHeal) div.style.color = '#00ff00'; div.innerText = val; div.style.left = x + 'px'; div.style.top = y + 'px'; document.body.appendChild(div); setTimeout(() => div.remove(), 1000);
+        }
+
+        function gainLevel(stats) { if(stats.level < MAX_LEVEL) { stats.level++; stats.maxHp += 70; stats.maxMana += 50; stats.curHp += 70; stats.curMana += 50; } }
+
+        function announce(playerWon) {
+            ui.ann.style.display = 'flex'; ui.ann.style.animation = 'none'; void ui.ann.offsetWidth; ui.ann.style.animation = 'slideDownFade 0.5s ease-out forwards';
+            if(playerWon) { ui.ann.classList.remove('ann-red'); ui.annText.innerText = "You have slain an enemy!"; ui.annLeft.style.borderColor = "#c8aa6e"; ui.annRight.style.borderColor = "#d12f2f"; } else { ui.ann.classList.add('ann-red'); ui.annText.innerText = "You have been slain"; ui.annLeft.style.borderColor = "#d12f2f"; ui.annRight.style.borderColor = "#c8aa6e"; }
+            setTimeout(() => { ui.ann.style.animation = 'fadeOut 0.5s forwards'; setTimeout(() => ui.ann.style.display = 'none', 500); }, 3000);
+        }
+
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB); scene.fog = new THREE.Fog(0x87CEEB, 30, 100);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000); camera.position.set(0, 35, 35); camera.lookAt(0, 0, 0);
+        const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); renderer.shadowMap.enabled = true; document.getElementById('game-canvas').appendChild(renderer.domElement);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7)); const dl = new THREE.DirectionalLight(0xfffaed, 1.2); dl.position.set(20, 50, 20); dl.castShadow = true; scene.add(dl);
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ visible: false })); plane.rotation.x = -Math.PI/2; scene.add(plane);
+        
+        const loadingManager = new THREE.LoadingManager();
+        loadingManager.onLoad = function ( ) {
+            const screen = document.getElementById('loading-screen');
+            screen.style.opacity = '0';
+            setTimeout(() => { 
+                screen.style.display = 'none'; 
+                document.getElementById('ui-layer').style.display = 'block';
+                gameStarted = true;
+                respawn(true); respawn(false);
+                showAugmentSelection();
+            }, 500);
+        };
+
+        const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.2, 0.9), new THREE.MeshStandardMaterial({ color: 0x0088ff })); pMesh.position.set(0, 1.1, 0); pMesh.castShadow = true; scene.add(pMesh);
+        const eMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.2, 0.9), new THREE.MeshStandardMaterial({ color: 0xff3333 })); eMesh.position.set(10, 1.1, 10); eMesh.castShadow = true; scene.add(eMesh);
+        const MODEL_URL = 'https://raw.githubusercontent.com/hiiragimikoto/ezreal-model/main/ezreal.glb'; 
+        const MAP_URL = 'https://raw.githubusercontent.com/hiiragimikoto/arena-map/main/league%20arena%203d%20model-compressed.glb';
+        const loader = new THREE.GLTFLoader(loadingManager);
+
+        loader.load(MAP_URL, function(gltf) {
+            const mapModel = gltf.scene; const wrapper = new THREE.Object3D(); scene.add(wrapper);
+            const box = new THREE.Box3().setFromObject(mapModel); const center = new THREE.Vector3(); box.getCenter(center); const size = new THREE.Vector3(); box.getSize(size);
+            mapModel.position.copy(center).negate(); wrapper.add(mapModel); mapModel.rotation.y = Math.PI;
+            const targetDiameter = MAP_RADIUS * 3; const scale = targetDiameter / Math.max(size.x, size.z);
+            wrapper.scale.set(scale, scale, scale); wrapper.position.y = 4.5;
+            mapModel.traverse(function(node) { if (node.isMesh) node.receiveShadow = true; });
+        });
+        
+        const pAnim = { mixer: null, actions: {}, locked: false, active: null }; const eAnim = { mixer: null, actions: {}, locked: false, active: null };
+        function setupModel(gltf, mesh, animData) {
+            const model = gltf.scene; const box = new THREE.Box3().setFromObject(model); const size = new THREE.Vector3(); box.getSize(size); const scaleFactor = 3.0 / size.y;
+            model.scale.set(scaleFactor, scaleFactor, scaleFactor); model.position.y = -1.1; mesh.add(model); mesh.material.visible = false; 
+            animData.mixer = new THREE.AnimationMixer(model); animData.mixer.addEventListener('finished', (e) => { if (e.action === animData.actions.atk || e.action === animData.actions.q || e.action === animData.actions.w) animData.locked = false; });
+            const findAnim = (name) => gltf.animations.find(a => a.name.toLowerCase().includes(name));
+            animData.actions.idle = animData.mixer.clipAction(findAnim('idle_base') || gltf.animations[0]); animData.actions.run = animData.mixer.clipAction(findAnim('ezreal_run') || gltf.animations[1]);
+            animData.actions.atk = animData.mixer.clipAction(findAnim('spell1')); if(animData.actions.atk) { animData.actions.atk.setLoop(THREE.LoopOnce); animData.actions.atk.clampWhenFinished = true; }
+            animData.actions.q = animData.mixer.clipAction(findAnim('spell4')); if(animData.actions.q) { animData.actions.q.setLoop(THREE.LoopOnce); animData.actions.q.clampWhenFinished = true; }
+            animData.actions.w = animData.mixer.clipAction(findAnim('spell2')); if(animData.actions.w) { animData.actions.w.setLoop(THREE.LoopOnce); animData.actions.w.clampWhenFinished = true; }
+            animData.actions.idle.play(); animData.active = animData.actions.idle;
+        }
+        loader.load(MODEL_URL, function (gltf) { setupModel(gltf, pMesh, pAnim); loader.load(MODEL_URL, function (gltf2) { setupModel(gltf2, eMesh, eAnim); }); });
+
+        const clock = new THREE.Clock(); 
+        let projectiles = [];
+
+        function playLockedAnimation(animData, action) { if (!action) return; if (animData.active && animData.active !== action) animData.active.fadeOut(0.1); animData.locked = true; action.reset().play(); animData.active = action; }
+        function updateAnimState(animData, moving) { if(!animData.mixer || animData.locked) return; const desired = moving ? animData.actions.run : animData.actions.idle; if(desired && animData.active !== desired) { if(animData.active) animData.active.fadeOut(0.2); desired.reset().fadeIn(0.2).play(); animData.active = desired; } }
+        function startChannel(mesh, chObj, duration, onComplete) { chObj.active = true; chObj.start = Date.now(); chObj.duration = duration; chObj.onComplete = onComplete; if (mesh === pMesh) { targetPosition.copy(pMesh.position); lockedTarget = null; } }
+        function checkChannels() { const now = Date.now(); if(pChannel.active && now - pChannel.start >= pChannel.duration) { pChannel.active = false; if(pChannel.onComplete) pChannel.onComplete(); } if(eChannel.active && now - eChannel.start >= eChannel.duration) { eChannel.active = false; if(eChannel.onComplete) eChannel.onComplete(); } }
+
+        function onAbilityUse(stats) { if(stats.hasRabble) { const heal = stats.maxHp * 0.02; stats.curHp = Math.min(stats.maxHp, stats.curHp + heal); } }
+
+        function tryCastQ(caster, stats, rawTargetPos) {
+            const chObj = (caster === pMesh) ? pChannel : eChannel, animData = (caster === pMesh) ? pAnim : eAnim; if (chObj.active) return; 
+            if (Date.now() - stats.cooldowns.q < getCooldown(spells.q.cd, stats.haste + stats.qHaste) || stats.curMana < spells.q.mana) return;
+            const targetPos = rawTargetPos.clone(); caster.lookAt(targetPos); playLockedAnimation(animData, animData.actions.q);
+            onAbilityUse(stats);
+            startChannel(caster, chObj, spells.q.castTime, () => { stats.curMana -= spells.q.mana; stats.cooldowns.q = Date.now(); spawnMysticShot(caster, targetPos, stats === player, stats.level); updateUI(); }); updateUI();
+        }
+        function tryCastW(caster, stats, rawTargetPos) {
+            const chObj = (caster === pMesh) ? pChannel : eChannel, animData = (caster === pMesh) ? pAnim : eAnim; if (chObj.active) return; 
+            if (Date.now() - stats.cooldowns.w < getCooldown(spells.w.cd, stats.haste + stats.wHaste) || stats.curMana < spells.w.mana) return;
+            const targetPos = rawTargetPos.clone(); caster.lookAt(targetPos); playLockedAnimation(animData, animData.actions.w || animData.actions.q);
+            onAbilityUse(stats);
+            startChannel(caster, chObj, spells.w.castTime, () => { stats.curMana -= spells.w.mana; stats.cooldowns.w = Date.now(); spawnEssenceFlux(caster, targetPos, stats === player, stats.level); updateUI(); }); updateUI();
+        }
+
+        function spawnMysticShot(caster, targetPos, isPlayer, level) {
+            const origin = caster.position.clone(); origin.y = 1.5; const direction = new THREE.Vector3().subVectors(targetPos, origin).normalize(); direction.y = 0;
+            const mesh = new THREE.Group(); mesh.position.copy(origin); mesh.lookAt(origin.clone().add(direction));
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff })); mesh.add(head);
+            const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.0, 16), new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })); glow.rotateX(-Math.PI/2); mesh.add(glow);
+            const trail = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.0, 4.0, 16), new THREE.MeshBasicMaterial({ color: 0x0088ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending })); trail.rotateX(-Math.PI/2); trail.translateZ(-2); mesh.add(trail);
+            const light = new THREE.PointLight(0x00ffff, 1.0, 10); mesh.add(light); scene.add(mesh);
+            const stats = isPlayer ? player : enemy; const dmg = getQDamage(level, stats);
+            skillshots.push({ mesh: mesh, dir: direction, speed: spells.q.speed, range: spells.q.range + (stats.range > 8 ? stats.range : 0), traveled: 0, damage: dmg, isPlayer: isPlayer, radius: spells.q.width/2, type: 'Q', emitParticles: true });
+        }
+        function spawnEssenceFlux(caster, targetPos, isPlayer, level) {
+            const origin = caster.position.clone(); origin.y = 1.5; const direction = new THREE.Vector3().subVectors(targetPos, origin).normalize(); direction.y = 0; const mesh = new THREE.Group(); mesh.position.copy(origin); mesh.lookAt(origin.clone().add(direction));
+            const ringGeo = new THREE.TorusGeometry(0.6, 0.1, 8, 16); ringGeo.rotateX(Math.PI/2); const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffd700, side: THREE.DoubleSide })); mesh.add(ring);
+            const core = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 })); mesh.add(core); scene.add(mesh);
+            const stats = isPlayer ? player : enemy;
+            skillshots.push({ mesh: mesh, dir: direction, speed: spells.w.speed, range: spells.w.range + (stats.range > 8 ? stats.range : 0), traveled: 0, damage: 0, isPlayer: isPlayer, radius: spells.w.width/2, type: 'W', emitParticles: false, level: level });
+        }
+        function spawnParticle(pos) { const geo = new THREE.PlaneGeometry(0.8, 0.8); const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }); const p = new THREE.Mesh(geo, mat); p.position.copy(pos); p.lookAt(camera.position); p.rotation.z = Math.random() * Math.PI; scene.add(p); particles.push({ mesh: p, life: 1.0 }); }
+        function applyCooldownReduction(stats) { const reduction = 1500; stats.cooldowns.q = Math.max(0, stats.cooldowns.q - reduction); stats.cooldowns.w = Math.max(0, stats.cooldowns.w - reduction); stats.cooldowns.d = Math.max(0, stats.cooldowns.d - reduction); stats.cooldowns.f = Math.max(0, stats.cooldowns.f - reduction); }
+        function attachWMark3D(targetMesh, stats, level) { if (stats.wMark.mesh) { targetMesh.remove(stats.wMark.mesh); stats.wMark.mesh = null; } const markGroup = new THREE.Group(); const ringGeo = new THREE.TorusGeometry(0.8, 0.08, 16, 32); const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd700, side: THREE.DoubleSide }); const ring = new THREE.Mesh(ringGeo, ringMat); ring.rotation.x = Math.PI / 2; markGroup.add(ring); const cylGeo = new THREE.CylinderGeometry(0.8, 0.8, 2.0, 32, 1, true); const cylMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.3, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }); const cyl = new THREE.Mesh(cylGeo, cylMat); cyl.position.y = 1.0; markGroup.add(cyl); const glowGeo = new THREE.CircleGeometry(0.7, 32); const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.4, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }); const glow = new THREE.Mesh(glowGeo, glowMat); glow.rotation.x = -Math.PI / 2; markGroup.add(glow); markGroup.position.set(0, -1.05, 0); targetMesh.add(markGroup); stats.wMark.active = true; stats.wMark.time = Date.now(); stats.wMark.mesh = markGroup; stats.wMark.appliedLevel = level; }
+        function popWMark(stats, ownerStats, attackerPos, targetMesh) { if(stats.wMark.active && Date.now() - stats.wMark.time < 4000) { stats.wMark.active = false; if (stats.wMark.mesh) { targetMesh.remove(stats.wMark.mesh); stats.wMark.mesh = null; } const burstDmg = getWDamage(stats.wMark.appliedLevel || 1, ownerStats); dealDamage(stats, burstDmg, stats === player); ownerStats.curMana = Math.min(ownerStats.maxMana, ownerStats.curMana + 60); const v = attackerPos.clone().add(new THREE.Vector3(0,2,0)); v.project(camera); showDamage("+60 Mana", (v.x*.5+.5)*innerWidth, (-(v.y*.5)+.5)*innerHeight - 30, true); } }
+        function checkWMarkTimeout(stats, targetMesh) { if (stats.wMark.active && Date.now() - stats.wMark.time >= 4000) { stats.wMark.active = false; if (stats.wMark.mesh) { targetMesh.remove(stats.wMark.mesh); stats.wMark.mesh = null; } } }
+        function tryCastD(caster, stats) { const chObj = (caster === pMesh) ? pChannel : eChannel; if (chObj.active) return; if (Date.now() - stats.cooldowns.d < getCooldown(spells.d.cd, stats.haste)) return; stats.cooldowns.d = Date.now(); stats.curHp += spells.d.heal; onAbilityUse(stats); createHealVisual(caster); updateUI(); }
+        function tryCastF(caster, stats, targetPos) { if (Date.now() - stats.cooldowns.f < getCooldown(spells.f.cd, stats.haste)) return; const dir = new THREE.Vector3().subVectors(targetPos, caster.position).normalize(); dir.y = 0; const dest = caster.position.clone().add(dir.multiplyScalar(spells.f.dist)); if(dest.length() < MAP_RADIUS - 1) { stats.cooldowns.f = Date.now(); createFlashVisual(caster.position); caster.position.copy(dest); caster.position.y = 1.5; if(caster === pMesh) targetPosition.copy(dest); } updateUI(); }
+        function createFlashVisual(pos, color=0xffff00) { const m = new THREE.Mesh(new THREE.SphereGeometry(1), new THREE.MeshBasicMaterial({ color: color })); m.position.copy(pos); scene.add(m); setTimeout(() => scene.remove(m), 200); }
+        function createHealVisual(caster) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 4, 16), new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 })); m.position.copy(caster.position); scene.add(m); const iv = setInterval(() => { m.position.y += 0.1; m.material.opacity -= 0.05; if(m.material.opacity<=0) { clearInterval(iv); scene.remove(m); }}, 50); }
+        
+        function dealDamage(stats, amount, isPlayerTarget) {
+            stats.curHp -= amount;
+            const attacker = isPlayerTarget ? enemy : player;
+            if (attacker.lifesteal > 0) {
+                const heal = amount * attacker.lifesteal;
+                attacker.curHp = Math.min(attacker.maxHp, attacker.curHp + heal);
+                const mesh = isPlayerTarget ? eMesh : pMesh;
+                const v = mesh.position.clone().add(new THREE.Vector3(0,2,0)); v.project(camera);
+                showDamage(`+${Math.floor(heal)}`, (v.x*.5+.5)*innerWidth + 20, (-(v.y*.5)+.5)*innerHeight - 20, false, true);
+            }
+            const obj = isPlayerTarget ? pMesh : eMesh; const vec = obj.position.clone(); vec.y += 2; vec.project(camera);
+            showDamage(Math.floor(amount), (vec.x*.5+.5)*innerWidth, (-(vec.y*.5)+.5)*innerHeight);
+            updateUI(); checkDeath();
+        }
+
+        let targetPosition = new THREE.Vector3(0, 1.5, 0), lockedTarget = null; const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2(); let lastMouseE;
+        window.addEventListener('mousemove', e => lastMouseE = e);
+        function getMouse3D() { if(!lastMouseE) return null; mouse.x = (lastMouseE.clientX / innerWidth) * 2 - 1; mouse.y = -(lastMouseE.clientY / innerHeight) * 2 + 1; raycaster.setFromCamera(mouse, camera); const hits = raycaster.intersectObject(plane); return hits.length ? hits[0].point : null; }
+        window.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); updateScoreboardData(); ui.scoreboard.style.display = 'flex'; return; } if(isDead || pChannel.active || isSelecting || !gameStarted) return; const pt = getMouse3D(); if (!pt) return; if (e.key.toLowerCase() === 'q') tryCastQ(pMesh, player, pt); if (e.key.toLowerCase() === 'w') tryCastW(pMesh, player, pt); if (e.key.toLowerCase() === 'd') tryCastD(pMesh, player); if (e.key.toLowerCase() === 'f') tryCastF(pMesh, player, pt); });
+        window.addEventListener('keyup', (e) => { if (e.key === 'Tab') ui.scoreboard.style.display = 'none'; });
+        window.addEventListener('contextmenu', (e) => { e.preventDefault(); if(isDead || pChannel.active || isSelecting || !gameStarted) return; const pt = getMouse3D(); if(!pt) return; if(pt.distanceTo(eMesh.position) < 2 && eMesh.visible) { lockedTarget = eMesh; createClickMarker(eMesh.position.x, eMesh.position.z, 0xff0000); } else { lockedTarget = null; if(pt.length() > MAP_RADIUS - 1.5) pt.setLength(MAP_RADIUS - 1.5); targetPosition.set(pt.x, 1.5, pt.z); createClickMarker(pt.x, pt.z, 0x00ff00); } });
+        function createClickMarker(x, z, c) { const m = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.7, 16), new THREE.MeshBasicMaterial({ color: c, side: 2 })); m.rotation.x = -Math.PI/2; m.position.set(x, 0.1, z); scene.add(m); setTimeout(()=>scene.remove(m), 500); }
+
+        function checkDeath() {
+            if (player.curHp <= 0 && !isDead) {
+                isDead = true; pMesh.visible = false; 
+                enemy.kills++; player.deaths++; 
+                
+                // NEW LEVELING LOGIC: If total kills is multiple of 2, BOTH gain +2 levels
+                if ((player.kills + enemy.kills) % 2 === 0) {
+                    gainLevel(player); gainLevel(player);
+                    gainLevel(enemy); gainLevel(enemy);
+                }
+
+                enemy.curHp = enemy.maxHp; enemy.curMana = enemy.maxMana; announce(false); ui.portrait.classList.add('dead-filter'); ui.deathTimer.style.display='flex';
+                let t = 5; ui.deathTimer.innerText = t; const iv = setInterval(()=>{ t--; ui.deathTimer.innerText=t; if(t<=0){ clearInterval(iv); respawn(true); } }, 1000);
+                setTimeout(() => { if (player.augments.length < AUGMENT_CAP) showAugmentSelection(); }, 2000);
+            }
+            if (enemy.curHp <= 0 && !isEnemyDead) {
+                isEnemyDead = true; eMesh.visible = false; 
+                player.kills++; player.cs++; enemy.deaths++; player.gold += 300; 
+
+                // NEW LEVELING LOGIC: If total kills is multiple of 2, BOTH gain +2 levels
+                if ((player.kills + enemy.kills) % 2 === 0) {
+                    gainLevel(player); gainLevel(player);
+                    gainLevel(enemy); gainLevel(enemy);
+                }
+
+                player.curHp = player.maxHp; player.curMana = player.maxMana; announce(true); 
+                setTimeout(() => { if (player.augments.length < AUGMENT_CAP) showAugmentSelection(); respawn(false); }, 2000);
+            }
+        }
+        
+        function respawn(isP) { 
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * (MAP_RADIUS - 5);
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+
+            if(isP) { 
+                isDead = false; pMesh.visible = true; 
+                pMesh.position.set(x, 1.5, z); 
+                targetPosition.set(x, 1.5, z); 
+                player.curHp = player.maxHp; player.curMana = player.maxMana; 
+                ui.portrait.classList.remove('dead-filter'); ui.deathTimer.style.display='none'; 
+            } else { 
+                isEnemyDead = false; eMesh.visible = true; 
+                eMesh.position.set(x, 1.5, z); 
+                enemyNav.set(x, 1.5, z);
+                enemy.curHp = enemy.maxHp; enemy.curMana = enemy.maxMana; 
+            } 
+            updateUI(); 
+        }
+
+        let enemyNav = new THREE.Vector3(10, 1.5, 10);
+        function updateAI(delta) { 
+            if(isEnemyDead || eChannel.active || isSelecting || !gameStarted) return; 
+            const dist = eMesh.position.distanceTo(pMesh.position); 
+            let aiMoving = false; 
+            if (enemy.curHp < enemy.maxHp * 0.3) tryCastD(eMesh, enemy); 
+            let dodgeVector = null, criticalThreat = false; 
+            
+            for (let s of skillshots) { 
+                if (s.isPlayer && s.mesh.visible) { 
+                    const toProj = s.mesh.position.clone().sub(eMesh.position), distToProj = toProj.length();
+                    // Basic prediction based on speed
+                    const predictedPos = s.mesh.position.clone().add(s.dir.clone().multiplyScalar(distToProj)); 
+                    if (predictedPos.distanceTo(eMesh.position) < s.radius + 2.0 && distToProj < 15) { 
+                        const perp = new THREE.Vector3(-s.dir.z, 0, s.dir.x).normalize(); 
+                        if (eMesh.position.clone().sub(s.mesh.position).dot(perp) < 0) perp.negate(); 
+                        dodgeVector = perp; 
+                        if (distToProj < 6 && s.type === 'Q') criticalThreat = true; 
+                    } 
+                } 
+            } 
+            
+            if (criticalThreat && Date.now() - enemy.cooldowns.f > getCooldown(spells.f.cd, enemy.haste)) { 
+                tryCastF(eMesh, enemy, eMesh.position.clone().add(dodgeVector.multiplyScalar(10))); return; 
+            } else if (dodgeVector) { 
+                // Dodge speed scaled by Delta (12 units/sec)
+                const dodgeStep = dodgeVector.multiplyScalar(12.0 * delta); 
+                eMesh.position.add(dodgeStep); eMesh.lookAt(pMesh.position); updateAnimState(eAnim, true); return; 
+            } 
+            
+            if (!isDead) { 
+                const isExecute = (player.curHp / player.maxHp) <= 0.15; 
+                if (dist <= spells.w.range && enemy.curMana > spells.w.mana + spells.q.mana && Date.now() - enemy.cooldowns.w > getCooldown(spells.w.cd, enemy.haste)) { tryCastW(eMesh, enemy, pMesh.position); return; } 
+                if (dist <= spells.q.range && Date.now() - enemy.cooldowns.q > getCooldown(spells.q.cd, enemy.haste) && enemy.curMana >= spells.q.mana) { tryCastQ(eMesh, enemy, pMesh.position); return; } 
+                if (dist <= enemy.range) { 
+                    eMesh.lookAt(pMesh.position); 
+                    if (Date.now() - enemy.lastAttack > enemy.attackSpeed) { spawnProj(eMesh, pMesh, 0xaa00ff); enemy.lastAttack = Date.now(); playLockedAnimation(eAnim, eAnim.actions.atk); } 
+                } 
+                let moveTarget = null; 
+                if (isExecute) { 
+                    if (dist > 3) moveTarget = pMesh.position.clone(); 
+                } else { 
+                    if (eMesh.position.distanceTo(enemyNav) < 2) { const angle = Math.random() * Math.PI * 2, r = Math.random() * (MAP_RADIUS - 2); enemyNav.set(Math.cos(angle) * r, 1.5, Math.sin(angle) * r); } 
+                    moveTarget = enemyNav; 
+                } 
+                if (moveTarget) { 
+                    const dir = new THREE.Vector3().subVectors(moveTarget, eMesh.position).normalize();
+                    // Enemy Speed scaled by Delta (7.2 units/sec)
+                    const nextPos = eMesh.position.clone().add(dir.multiplyScalar(7.2 * delta)); 
+                    if (nextPos.length() < MAP_RADIUS - 1) { eMesh.position.copy(nextPos); if (!isExecute || dist > 10) eMesh.lookAt(moveTarget); else eMesh.lookAt(pMesh.position); aiMoving = true; } 
+                    else { enemyNav.set((Math.random()-0.5)*20, 1.5, (Math.random()-0.5)*20); } 
+                } 
+            } else { 
+                if (eMesh.position.distanceTo(enemyNav) < 1) { enemyNav.set((Math.random()-0.5)*40, 1.5, (Math.random()-0.5)*40); if(enemyNav.length() > MAP_RADIUS-2) enemyNav.setLength(MAP_RADIUS-2); } 
+                const d = new THREE.Vector3().subVectors(enemyNav, eMesh.position).normalize();
+                const n = eMesh.position.clone().add(d.multiplyScalar(7.2 * delta)); 
+                eMesh.position.copy(n); eMesh.lookAt(enemyNav); aiMoving = true; 
+            } 
+            updateAnimState(eAnim, aiMoving); 
+        }
+
+        function spawnProj(owner, target, color) { 
+            const mesh = new THREE.Group(); const core = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({ color: 0xffffaa })); mesh.add(core); const glow = new THREE.Mesh(new THREE.SphereGeometry(0.35), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending })); mesh.add(glow); const trail = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0, 1.5, 8), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.4 })); trail.rotation.x = -Math.PI/2; trail.position.z = -0.8; mesh.add(trail); mesh.position.copy(owner.position); mesh.position.y = 1.5; 
+            const stats = (owner === pMesh) ? player : enemy;
+            // UPDATED: Projectile speed is now units/sec (55)
+            mesh.userData = { t: target, o: owner, spd: 55, dmg: stats.damage, type: 'primary' }; 
+            scene.add(mesh); projectiles.push(mesh); 
+            if(stats.hasTyphoon) {
+                const bolt = mesh.clone();
+                bolt.scale.set(0.7, 0.7, 0.7);
+                bolt.userData = { t: target, o: owner, spd: 48, dmg: stats.damage * 0.5, type: 'secondary' };
+                bolt.position.x += 0.5; 
+                scene.add(bolt); projectiles.push(bolt);
+            }
+        }
+
+        let lastPos = new THREE.Vector3();
+        function animate() {
+            requestAnimationFrame(animate); 
+            if(!gameStarted) return; 
+
+            const delta = clock.getDelta(); // Time elapsed since last frame
+            
+            if (pAnim.mixer) pAnim.mixer.update(delta); if (eAnim.mixer) eAnim.mixer.update(delta);
+            checkChannels(); checkWMarkTimeout(player, pMesh); checkWMarkTimeout(enemy, eMesh);
+            if (player.wMark.mesh) player.wMark.mesh.rotation.y += delta * 3; if (enemy.wMark.mesh) enemy.wMark.mesh.rotation.y += delta * 3;
+
+            // Minimap Update
+            if (pMesh.visible) {
+                const pctX = (pMesh.position.x + MAP_RADIUS) / (MAP_RADIUS*2);
+                const pctY = (pMesh.position.z + MAP_RADIUS) / (MAP_RADIUS*2);
+                ui.mmPlayer.style.left = (pctX * 100) + '%';
+                ui.mmPlayer.style.top = (pctY * 100) + '%';
+            }
+            if (eMesh.visible && !isEnemyDead) {
+                const pctX = (eMesh.position.x + MAP_RADIUS) / (MAP_RADIUS*2);
+                const pctY = (eMesh.position.z + MAP_RADIUS) / (MAP_RADIUS*2);
+                ui.mmEnemy.style.left = (pctX * 100) + '%';
+                ui.mmEnemy.style.top = (pctY * 100) + '%';
+                ui.mmEnemy.style.display = 'block';
+            } else {
+                ui.mmEnemy.style.display = 'none';
+            }
+
+            // Augment Loops
+            [player, enemy].forEach(s => {
+                const m = (s === player) ? pMesh : eMesh;
+                if(s.hasRestless) {
+                    const dist = m.position.distanceTo(lastPos);
+                    s.distanceMoved += dist;
+                    if(s.distanceMoved > 10) {
+                        s.curHp = Math.min(s.maxHp, s.curHp + (s.maxHp * 0.02));
+                        s.distanceMoved = 0;
+                    }
+                }
+                if(s.hasDawn) {
+                    if(s.curHp / s.maxHp < 0.5 && Date.now() > s.dawnCd) {
+                        const heal = s.maxHp * 0.30;
+                        s.curHp = Math.min(s.maxHp, s.curHp + heal);
+                        s.dawnCd = Date.now() + 15000;
+                        createHealVisual(m);
+                    }
+                }
+            });
+            lastPos.copy(pMesh.position);
+
+            if(!isDead && !pChannel.active && !isSelecting) {
+                const regenAmount = (REGEN_PER_SEC * player.hpRegenMod) * delta; player.curHp = Math.min(player.maxHp, player.curHp + regenAmount); player.curMana = Math.min(player.maxMana, player.curMana + regenAmount);
+                if(!isEnemyDead) { const eRegen = (REGEN_PER_SEC * enemy.hpRegenMod) * delta; enemy.curHp = Math.min(enemy.maxHp, enemy.curHp + eRegen); enemy.curMana = Math.min(enemy.maxMana, enemy.curMana + eRegen); }
+                let playerMoving = false;
+                
+                // Player Movement Scaled by Delta
+                const baseSpeed = 9.0; // Units per second
+                const speedMod = baseSpeed + (player.hasTap ? 3.0 : 0);
+
+                if(lockedTarget && lockedTarget.visible) {
+                    if (pMesh.position.distanceTo(lockedTarget.position) <= player.range) {
+                        pMesh.lookAt(lockedTarget.position);
+                        if (Date.now() - player.lastAttack > player.attackSpeed) { spawnProj(pMesh, lockedTarget, 0xffff00); player.lastAttack = Date.now(); playLockedAnimation(pAnim, pAnim.actions.atk); }
+                    } else { 
+                        const d = new THREE.Vector3().subVectors(lockedTarget.position, pMesh.position).normalize();
+                        const moveStep = d.multiplyScalar(speedMod * delta);
+                        const nextPos = pMesh.position.clone().add(moveStep); 
+                        playerMoving = true; pMesh.position.copy(nextPos); pMesh.lookAt(lockedTarget.position); targetPosition.copy(pMesh.position); 
+                    }
+                } else if (pMesh.position.distanceTo(targetPosition) > 0.1) { 
+                    const d = new THREE.Vector3().subVectors(targetPosition, pMesh.position).normalize();
+                    const moveStep = d.multiplyScalar(speedMod * delta);
+                    const nextPos = pMesh.position.clone().add(moveStep); 
+                    playerMoving = true; pMesh.position.copy(nextPos); pMesh.lookAt(targetPosition); 
+                }
+                updateAnimState(pAnim, playerMoving);
+            }
+            updateAI(delta);
+
+            for(let i=particles.length-1; i>=0; i--) { const p = particles[i]; p.life -= delta * 2.0; p.mesh.material.opacity = p.life * 0.6; p.mesh.scale.multiplyScalar(0.95); if(p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); } }
+            
+            for (let i=projectiles.length-1; i>=0; i--) { 
+                const p = projectiles[i]; 
+                if(!p.userData.t.visible || (p.userData.t === pMesh && isDead)) { scene.remove(p); projectiles.splice(i,1); continue; } 
+                const dir = new THREE.Vector3().subVectors(p.userData.t.position, p.position).normalize(); 
+                
+                // Projectile movement scaled by Delta
+                p.position.add(dir.multiplyScalar(p.userData.spd * delta)); 
+                
+                p.lookAt(p.userData.t.position); 
+                if (p.position.distanceTo(p.userData.t.position) < 1) { 
+                    scene.remove(p); projectiles.splice(i,1); 
+                    const stats = (p.userData.o === pMesh) ? player : enemy;
+                    let dmg = p.userData.dmg;
+                    if(stats.hasHeavy) dmg += stats.maxHp * 0.05;
+                    if(stats.hasTwice) {
+                        stats.attackCount++;
+                        if(stats.attackCount % 3 === 0) dmg *= 2; 
+                    }
+                    if(stats.hasMystic) { stats.cooldowns.q -= 1000; stats.cooldowns.w -= 1000; stats.cooldowns.d -= 1000; stats.cooldowns.f -= 1000; }
+                    if (p.userData.t === eMesh) { dealDamage(enemy, dmg, false); popWMark(enemy, player, pMesh.position, eMesh); } 
+                    else { dealDamage(player, dmg, true); popWMark(player, enemy, eMesh.position, pMesh); } 
+                } 
+            }
+
+            for (let i = skillshots.length - 1; i >= 0; i--) { 
+                const s = skillshots[i]; 
+                
+                // Skillshot movement scaled by Delta
+                const moveDist = s.speed * delta;
+                s.mesh.position.add(s.dir.clone().multiplyScalar(moveDist)); 
+                s.traveled += moveDist; 
+
+                if(s.type === 'W') s.mesh.children[0].rotation.z += 0.2; 
+                if(s.emitParticles) spawnParticle(s.mesh.position.clone()); 
+                let hit = false; 
+                const potentialTarget = s.isPlayer ? eMesh : pMesh, stats = s.isPlayer ? enemy : player, ownerStats = s.isPlayer ? player : enemy; 
+                if (potentialTarget.visible && s.mesh.position.distanceTo(potentialTarget.position) < s.radius + 1.5 * stats.scale) { 
+                    hit = true; 
+                    if (s.type === 'Q') { dealDamage(stats, s.damage, !s.isPlayer); if(s.isPlayer) applyCooldownReduction(player); popWMark(stats, ownerStats, s.mesh.position, potentialTarget); } 
+                    else if (s.type === 'W') { attachWMark3D(potentialTarget, stats, s.level || 1); } 
+                } 
+                if (hit || s.traveled >= s.range) { scene.remove(s.mesh); skillshots.splice(i, 1); } 
+            }
+
+            if(pMesh.visible) { const v = pMesh.position.clone().add(new THREE.Vector3(0,2.4 * player.scale,0)); v.project(camera); ui.pOverhead.style.left = (v.x*.5+.5)*innerWidth+'px'; ui.pOverhead.style.top = (-(v.y*.5)+.5)*innerHeight+'px'; } else ui.pOverhead.style.display = 'none';
+            if(eMesh.visible) { const v = eMesh.position.clone().add(new THREE.Vector3(0,3.5 * enemy.scale,0)); v.project(camera); ui.eOverhead.style.left = (v.x*.5+.5)*innerWidth+'px'; ui.eOverhead.style.top = (-(v.y*.5)+.5)*innerHeight+'px'; ui.eOverhead.style.display = 'flex'; } else ui.eOverhead.style.display = 'none';
+            updateUI();
+            camera.position.x = pMesh.position.x * 0.5; camera.position.z = pMesh.position.z * 0.5 + 35; camera.lookAt(pMesh.position);
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+        animate();
+    </script>
+</body>
+</html>>
